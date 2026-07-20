@@ -54,7 +54,7 @@ body {
 
 /* Container */
 .container {
-    max-width: 600px;
+    max-width: 720px;
     margin: 48px auto;
     padding: 0 16px;
 }
@@ -157,9 +157,110 @@ body {
     background-color: #5a6fd6;
 }
 
-/* User Info List */
-.user-info {
+/* Search Section */
+.search-section {
     margin-bottom: 24px;
+    padding-top: 20px;
+    border-top: 1px solid #f0f0f0;
+}
+
+.search-form {
+    margin-bottom: 16px;
+}
+
+.search-box {
+    display: flex;
+    gap: 8px;
+}
+
+.search-input {
+    flex: 1;
+    padding: 10px 12px;
+    border: 1px solid #cccccc;
+    border-radius: 4px;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.search-input:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+}
+
+/* Search Results */
+.search-results {
+    margin-top: 16px;
+}
+
+.result-count {
+    font-size: 13px;
+    color: #888888;
+    margin-bottom: 12px;
+}
+
+.no-result {
+    text-align: center;
+    color: #888888;
+    padding: 24px 0;
+    font-size: 14px;
+}
+
+/* Result Table */
+.result-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.result-table thead {
+    background-color: #f8f9fa;
+}
+
+.result-table th {
+    padding: 10px 12px;
+    text-align: left;
+    font-weight: 600;
+    color: #555555;
+    border-bottom: 2px solid #e0e0e0;
+}
+
+.result-table td {
+    padding: 10px 12px;
+    color: #333333;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.result-table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+/* Register Card */
+.register-card {
+    max-width: 420px;
+    margin: 0 auto;
+}
+
+.register-form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.form-footer {
+    text-align: center;
+    margin-top: 16px;
+    font-size: 14px;
+    color: #888888;
+}
+
+.form-footer a {
+    color: #667eea;
+    text-decoration: none;
+}
+
+.form-footer a:hover {
+    text-decoration: underline;
 }
 
 .info-list {
