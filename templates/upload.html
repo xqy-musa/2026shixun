@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card upload-card">
+    <h2>上传头像</h2>
+
+    <form method="post" action="/upload" enctype="multipart/form-data" class="upload-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <div class="form-group">
+            <label for="file">选择文件</label>
+            <input type="file" id="file" name="file" class="file-input">
+        </div>
+        {% if error %}
+            <div class="error-msg">{{ error }}</div>
+        {% endif %}
+        <button type="submit" class="btn btn-primary">上 传</button>
+    </form>
+
+    {% if success %}
+        <div class="upload-result">
+            <div class="success-msg">上传成功！</div>
+            <div class="preview-section">
+                <img src="{{ file_url }}" alt="头像预览" class="avatar-preview">
+            </div>
+            <div class="file-link">
+                <p>文件路径：<code>{{ filename }}</code></p>
+                <p>访问链接：<a href="{{ file_url }}" target="_blank">{{ file_url }}</a></p>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -6,6 +6,8 @@ import os
 import secrets
 import re
 import sqlite3
+import uuid
+import imghdr
 
 app = Flask(__name__)
 
@@ -15,6 +17,7 @@ app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
     SESSION_COOKIE_SECURE=False,
+    MAX_CONTENT_LENGTH=16 * 1024 * 1024,
 )
 
 
@@ -256,6 +259,57 @@ def register():
             return render_template("register.html", error="注册失败，请稍后重试")
 
     return render_template("register.html")
+
+
+# ============================================================
+# 文件上传（已修复安全漏洞）
+# ============================================================
+
+# 允许上传的文件类型白名单
+ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "gif", "webp"}
+
+
+def allowed_file(filename):
+    """检查文件扩展名是否在白名单内。"""
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+@app.route("/upload", methods=["GET", "POST"])
+@login_required
+def upload():
+    if request.method == "POST":
+        file = request.files.get("file")
+        if not file or file.filename == "":
+            return render_template("upload.html", error="请选择要上传的文件")
+
+        # 【修复】检查文件扩展名
+        if not allowed_file(file.filename):
+            return render_template("upload.html", error="仅允许上传 jpg、jpeg、png、gif、webp 格式的图片文件")
+
+        # 【修复】防止路径遍历：仅取原始文件名中的基本名称
+        original_name = os.path.basename(file.filename)
+
+        # 【修复】使用 UUID 重命名文件，防止文件名冲突和覆盖
+        ext = original_name.rsplit(".", 1)[1].lower() if "." in original_name else ""
+        safe_filename = f"{uuid.uuid4().hex}.{ext}"
+
+        # 创建上传目录
+        upload_dir = os.path.join(app.root_path, "static", "uploads")
+        os.makedirs(upload_dir, exist_ok=True)
+
+        # 保存文件
+        filepath = os.path.join(upload_dir, safe_filename)
+        file.save(filepath)
+
+        # 【修复】验证文件内容是否为真实图片
+        if not imghdr.what(filepath):
+            os.remove(filepath)
+            return render_template("upload.html", error="上传的文件不是有效的图片格式")
+
+        file_url = url_for("static", filename=f"uploads/{safe_filename}")
+        return render_template("upload.html", success=True, file_url=file_url, filename=original_name, safe_filename=safe_filename)
+
+    return render_template("upload.html")
 
 
 # ============================================================

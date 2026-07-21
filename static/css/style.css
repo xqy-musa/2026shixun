@@ -289,3 +289,77 @@ body {
     font-size: 14px;
     font-weight: 500;
 }
+
+/* Upload Card */
+.upload-card {
+    max-width: 500px;
+    margin: 0 auto;
+}
+
+.upload-form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.file-input {
+    padding: 8px 0;
+    font-size: 14px;
+}
+
+.upload-result {
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid #f0f0f0;
+}
+
+.success-msg {
+    background-color: #e8f5e9;
+    color: #2e7d32;
+    padding: 10px 14px;
+    border-radius: 4px;
+    font-size: 14px;
+    border: 1px solid #c8e6c9;
+    margin-bottom: 16px;
+}
+
+.preview-section {
+    text-align: center;
+    margin-bottom: 16px;
+}
+
+.avatar-preview {
+    max-width: 200px;
+    max-height: 200px;
+    border-radius: 8px;
+    border: 2px solid #e0e0e0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.file-link {
+    font-size: 13px;
+    color: #666666;
+}
+
+.file-link code {
+    background-color: #f5f5f5;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 12px;
+    color: #333;
+}
+
+.file-link a {
+    color: #667eea;
+    text-decoration: none;
+    word-break: break-all;
+}
+
+.file-link a:hover {
+    text-decoration: underline;
+}
+
+/* Upload Shortcut */
+.upload-shortcut {
+    margin-bottom: 20px;
+}
