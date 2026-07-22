@@ -314,57 +314,97 @@ def upload():
 
 
 # ============================================================
-# 个人中心（水平越权漏洞：URL 参数 user_id 可查看任意用户）
+# 个人中心（已修复越权漏洞：仅查看当前登录用户自己的资料）
 # ============================================================
 
 @app.route("/profile")
 @login_required
 def profile():
-    # 从 URL 参数获取 user_id，不从 session 获取
-    user_id = request.args.get("user_id")
+    # 【修复】从 session 获取当前登录用户名，不从 URL 参数获取
+    username = session.get("username")
 
-    # 查询用户数据（不验证当前登录用户和要查询的 user_id 是否匹配）
+    # 先在 USERS 字典中查找
+    if username in USERS:
+        user_data = USERS[username]
+        # 从字典中获取完整信息（含 id）
+        user_id = 1 if username == "admin" else 2  # 兼容字典用户
+        safe_user = sanitize_user_info(user_data)
+        safe_user["id"] = user_id
+        return render_template("profile.html", user=safe_user)
+
+    # 从 SQLite 数据库中查询当前登录用户
     conn = sqlite3.connect("data/users.db")
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
-    c.execute("SELECT id, username, email, phone, balance FROM users WHERE id = ?", (user_id,))
+    c.execute("SELECT id, username, email, phone, balance FROM users WHERE username = ?", (username,))
     user_data = c.fetchone()
     conn.close()
 
     if not user_data:
         return render_template("profile.html", error="用户不存在")
 
-    return render_template("profile.html", user=dict(user_data))
+    # 【修复】调用脱敏函数处理敏感信息
+    user_dict = dict(user_data)
+    safe_info = {
+        "id": user_dict["id"],
+        "username": user_dict["username"],
+        "email": user_dict["email"],
+        "phone": user_dict["phone"][:3] + "****" + user_dict["phone"][-4:] if user_dict["phone"] else "",
+        "balance": "¥{:,.2f}".format(float(user_dict["balance"])),
+    }
+    return render_template("profile.html", user=safe_info)
 
 
 # ============================================================
-# 充值（垂直越权漏洞：未校验 amount 正负，可篡改任意用户余额）
+# 充值（已修复越权漏洞：仅操作当前登录用户自己的账户）
 # ============================================================
 
 @app.route("/recharge", methods=["POST"])
 @login_required
 def recharge():
-    user_id = request.form.get("user_id")
+    # 【修复】从 session 获取当前登录用户，不从表单获取
+    username = session.get("username")
     amount = request.form.get("amount", "0")
 
-    # 不做正负校验，直接修改余额
+    # 【修复】校验金额必须为正数
+    try:
+        amount_float = float(amount)
+        if amount_float <= 0:
+            return render_template("profile.html", error="充值金额必须大于 0")
+    except ValueError:
+        return render_template("profile.html", error="请输入有效的金额")
+
+    # 查询当前登录用户的 ID 和余额
     conn = sqlite3.connect("data/users.db")
     c = conn.cursor()
-    c.execute("SELECT balance FROM users WHERE id = ?", (user_id,))
+
+    # 先查 USERS 字典用户
+    if username in USERS:
+        new_balance = USERS[username]["balance"] + amount_float
+        USERS[username]["balance"] = new_balance
+        # 同步更新 SQLite
+        c.execute("UPDATE users SET balance = ? WHERE username = ?", (new_balance, username))
+        conn.commit()
+        conn.close()
+        # 获取 user_id
+        c2 = sqlite3.connect("data/users.db")
+        c2.row_factory = sqlite3.Row
+        cur = c2.cursor()
+        cur.execute("SELECT id FROM users WHERE username = ?", (username,))
+        row = cur.fetchone()
+        uid = row["id"] if row else 0
+        c2.close()
+        return redirect(url_for("profile"))
+
+    # SQLite 用户
+    c.execute("SELECT id, balance FROM users WHERE username = ?", (username,))
     row = c.fetchone()
     if row:
-        new_balance = row[0] + float(amount)
-        c.execute("UPDATE users SET balance = ? WHERE id = ?", (new_balance, user_id))
+        new_balance = row[1] + amount_float
+        c.execute("UPDATE users SET balance = ? WHERE id = ?", (new_balance, row[0]))
         conn.commit()
-
-        # 同步更新 USERS 字典中的余额
-        c.execute("SELECT username FROM users WHERE id = ?", (user_id,))
-        username_row = c.fetchone()
-        if username_row and username_row[0] in USERS:
-            USERS[username_row[0]]["balance"] = new_balance
-
     conn.close()
-    return redirect(url_for("profile", user_id=user_id))
+    return redirect(url_for("profile"))
 
 
 # ============================================================
