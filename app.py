@@ -36,16 +36,17 @@ def init_db():
             username TEXT UNIQUE NOT NULL,
             password TEXT NOT NULL,
             email TEXT,
-            phone TEXT
+            phone TEXT,
+            balance REAL DEFAULT 0
         )
     """)
     # 插入默认用户（密码使用哈希存储）
     admin_pwd = generate_password_hash("admin123")
     alice_pwd = generate_password_hash("alice2025")
-    c.execute("INSERT OR IGNORE INTO users (username, password, email, phone) VALUES (?, ?, ?, ?)",
-              ("admin", admin_pwd, "admin@example.com", "13800138000"))
-    c.execute("INSERT OR IGNORE INTO users (username, password, email, phone) VALUES (?, ?, ?, ?)",
-              ("alice", alice_pwd, "alice@example.com", "13900139001"))
+    c.execute("INSERT OR IGNORE INTO users (username, password, email, phone, balance) VALUES (?, ?, ?, ?, ?)",
+              ("admin", admin_pwd, "admin@example.com", "13800138000", 99999))
+    c.execute("INSERT OR IGNORE INTO users (username, password, email, phone, balance) VALUES (?, ?, ?, ?, ?)",
+              ("alice", alice_pwd, "alice@example.com", "13900139001", 100))
     conn.commit()
     conn.close()
 
@@ -238,15 +239,15 @@ def register():
             return render_template("register.html", error="用户名和密码不能为空")
 
         # 【修复】使用参数化查询代替 f-string 拼接
-        sql = "INSERT INTO users (username, password, email, phone) VALUES (?, ?, ?, ?)"
+        sql = "INSERT INTO users (username, password, email, phone, balance) VALUES (?, ?, ?, ?, ?)"
         # 【修复】密码使用哈希存储
         hashed_pwd = generate_password_hash(password)
-        print(f"\n[SQL] 执行插入: {sql} (参数: '{username}', '[哈希密码]', '{email}', '{phone}')\n")
+        print(f"\n[SQL] 执行插入: {sql} (参数: '{username}', '[哈希密码]', '{email}', '{phone}', 0)\n")
 
         conn = sqlite3.connect("data/users.db")
         c = conn.cursor()
         try:
-            c.execute(sql, (username, hashed_pwd, email, phone))
+            c.execute(sql, (username, hashed_pwd, email, phone, 0))
             conn.commit()
             conn.close()
             return redirect(url_for("login", registered="success"))
@@ -310,6 +311,60 @@ def upload():
         return render_template("upload.html", success=True, file_url=file_url, filename=original_name, safe_filename=safe_filename)
 
     return render_template("upload.html")
+
+
+# ============================================================
+# 个人中心（水平越权漏洞：URL 参数 user_id 可查看任意用户）
+# ============================================================
+
+@app.route("/profile")
+@login_required
+def profile():
+    # 从 URL 参数获取 user_id，不从 session 获取
+    user_id = request.args.get("user_id")
+
+    # 查询用户数据（不验证当前登录用户和要查询的 user_id 是否匹配）
+    conn = sqlite3.connect("data/users.db")
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    c.execute("SELECT id, username, email, phone, balance FROM users WHERE id = ?", (user_id,))
+    user_data = c.fetchone()
+    conn.close()
+
+    if not user_data:
+        return render_template("profile.html", error="用户不存在")
+
+    return render_template("profile.html", user=dict(user_data))
+
+
+# ============================================================
+# 充值（垂直越权漏洞：未校验 amount 正负，可篡改任意用户余额）
+# ============================================================
+
+@app.route("/recharge", methods=["POST"])
+@login_required
+def recharge():
+    user_id = request.form.get("user_id")
+    amount = request.form.get("amount", "0")
+
+    # 不做正负校验，直接修改余额
+    conn = sqlite3.connect("data/users.db")
+    c = conn.cursor()
+    c.execute("SELECT balance FROM users WHERE id = ?", (user_id,))
+    row = c.fetchone()
+    if row:
+        new_balance = row[0] + float(amount)
+        c.execute("UPDATE users SET balance = ? WHERE id = ?", (new_balance, user_id))
+        conn.commit()
+
+        # 同步更新 USERS 字典中的余额
+        c.execute("SELECT username FROM users WHERE id = ?", (user_id,))
+        username_row = c.fetchone()
+        if username_row and username_row[0] in USERS:
+            USERS[username_row[0]]["balance"] = new_balance
+
+    conn.close()
+    return redirect(url_for("profile", user_id=user_id))
 
 
 # ============================================================
