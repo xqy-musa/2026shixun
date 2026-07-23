@@ -408,8 +408,11 @@ def recharge():
 
 
 # ============================================================
-# 动态页面加载（路径遍历漏洞：name 参数直接拼接，无任何过滤）
+# 动态页面加载（已修复路径遍历漏洞）
 # ============================================================
+
+# 允许加载的页面白名单
+ALLOWED_PAGES = {"help", "about", "contact", "faq"}
 
 @app.route("/page")
 def dynamic_page():
@@ -418,23 +421,23 @@ def dynamic_page():
     if not name:
         return render_template("index.html", page_content="请指定页面名称")
 
-    # 直接拼接用户输入的 name 到路径中（不做任何 ../ 过滤）
-    page_path = os.path.join("pages", name)
+    # 【修复】第一步：过滤 ../ 路径遍历
+    if ".." in name or "/" in name or "\\" in name:
+        return render_template("index.html", page_content="页面不存在")
+
+    # 【修复】第二步：白名单校验
+    if name not in ALLOWED_PAGES:
+        return render_template("index.html", page_content="页面不存在")
+
+    # 构建安全路径
+    page_path = os.path.join("pages", name + ".html")
 
     content = None
-
-    # 先尝试直接读取
     if os.path.exists(page_path):
         with open(page_path, "r", encoding="utf-8") as f:
             content = f.read()
     else:
-        # 尝试加上 .html 后缀
-        page_path_html = page_path + ".html"
-        if os.path.exists(page_path_html):
-            with open(page_path_html, "r", encoding="utf-8") as f:
-                content = f.read()
-        else:
-            content = "页面不存在"
+        content = "页面不存在"
 
     # 获取首页所需的用户信息
     username = session.get("username")
